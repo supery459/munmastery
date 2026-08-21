@@ -1,0 +1,42 @@
+[
+  {
+    "label": "New York",
+    "x": 30.13,
+    "y": 9.42
+  },
+  {
+    "label": "Brussels",
+    "x": 51.46,
+    "y": 5.8
+  },
+  {
+    "label": "Geneva",
+    "x": 51.88,
+    "y": 7.97
+  },
+  {
+    "label": "Nairobi",
+    "x": 61.09,
+    "y": 23.92
+  },
+  {
+    "label": "New Delhi",
+    "x": 72.8,
+    "y": 13.77
+  },
+  {
+    "label": "Tokyo",
+    "x": 89.54,
+    "y": 10.87
+  },
+  {
+    "label": "Brasília",
+    "x": 35.98,
+    "y": 28.26
+  },
+  {
+    "label": "Canberra",
+    "x": 92.47,
+    "y": 34.79
+  }
+]
