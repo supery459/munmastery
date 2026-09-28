@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { AppShell } from "@/components/common/app-shell";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "MUN Mastery — Train for Model UN with AI",
@@ -16,7 +17,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} dark h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-background"><AppShell>{children}</AppShell></body>
+      <body className="flex min-h-full flex-col bg-background">
+        <AppShell>{children}</AppShell>
+        <Analytics />
+      </body>
     </html>
   );
 }
