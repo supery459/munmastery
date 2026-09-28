@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "Practice a full committee session against AI delegates with realistic geopolitical positions.",
 };
 
-export default function SimulatorPage() {
-  return <SimulatorRoot />;
+export default async function SimulatorPage({ searchParams }: PageProps<"/simulator">) {
+  const params = await searchParams;
+  const search = Object.fromEntries(Object.entries(params).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+  return <SimulatorRoot key={JSON.stringify(search)} search={search} />;
 }

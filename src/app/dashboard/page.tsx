@@ -19,7 +19,7 @@ export default function DashboardPage() {
         <RecentActivity />
       </Panel>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
         <Panel id="performance" className="lg:col-span-2">
           <PerformanceChart />
         </Panel>

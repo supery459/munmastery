@@ -5,18 +5,19 @@ import { AuthGate } from "@/components/auth/auth-gate";
 import { ConfigScreen } from "@/components/simulator/config-screen";
 import { CommitteeRoom } from "@/components/simulator/committee-room";
 import { Scorecard } from "@/components/simulator/scorecard";
+import { getCurrentUserId } from "@/lib/user-store";
 import type { SessionResult, SimulatorConfig } from "@/components/simulator/types";
 
 type Phase = "config" | "session" | "debrief";
 
-export function SimulatorRoot() {
+export function SimulatorRoot({ search = {} }: { search?: Record<string, string> }) {
   const [phase, setPhase] = useState<Phase>("config");
   const [config, setConfig] = useState<SimulatorConfig | null>(null);
   const [result, setResult] = useState<SessionResult | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
 
   function handleStart(cfg: SimulatorConfig) {
-    setConfig(cfg);
+    setConfig({ ...cfg, ownerId: getCurrentUserId() });
     setSessionKey((k) => k + 1);
     setPhase("session");
   }
@@ -50,7 +51,7 @@ export function SimulatorRoot() {
 
   return (
     <AuthGate>
-      <ConfigScreen onStart={handleStart} />
+      <ConfigScreen search={search} onStart={handleStart} />
     </AuthGate>
   );
 }

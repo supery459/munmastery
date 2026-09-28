@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "Record or paste a speech for instant diagnostic feedback on confidence, tone, evidence, structure, and pacing.",
 };
 
-export default function SpeechLabPage() {
-  return <SpeechLabRoot />;
+export default async function SpeechLabPage({ searchParams }: PageProps<"/speech-lab">) {
+  const { draft } = await searchParams;
+  const draftId = typeof draft === "string" ? draft : undefined;
+  return <SpeechLabRoot key={draftId ?? "new"} draftId={draftId} />;
 }

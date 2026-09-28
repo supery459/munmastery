@@ -124,6 +124,7 @@ function PortfolioHub() {
               <p className="mt-1 text-sm text-foreground-muted">
                 Set one portfolio as Active to have practice tools default to its country and topic.
               </p>
+              {activeId && <button onClick={() => { setActivePortfolioId(null); refresh(); }} className="mt-3 rounded-lg border border-panel-border px-3 py-2 text-xs">Switch to global practice</button>}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

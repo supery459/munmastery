@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, HelpCircle, X } from "lucide-react";
 
-const HELP_TOPICS = [
+export const HELP_TOPICS = [
   {
     question: "How do I start a targeted practice session for my conference?",
     answer:

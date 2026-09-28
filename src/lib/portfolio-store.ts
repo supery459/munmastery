@@ -17,7 +17,7 @@
  */
 
 import { getCurrentUserId } from "@/lib/user-store";
-import { unassignPortfolio } from "@/lib/activity-store";
+import { unassignPortfolio, getActivityEntry } from "@/lib/activity-store";
 
 export type Portfolio = {
   id: string;
@@ -66,11 +66,11 @@ function readList<T>(key: string | null): T[] {
 }
 
 function writeList<T>(key: string | null, list: T[]): void {
-  if (!isBrowser() || !key) return;
+  if (!isBrowser() || !key) throw new Error("Sign in before saving a conference portfolio.");
   try {
     window.localStorage.setItem(key, JSON.stringify(list));
   } catch {
-    // Private-browsing / storage-full — the change just won't persist.
+    throw new Error("Your browser could not save this portfolio. Free up browser storage and try again.");
   }
 }
 
@@ -163,9 +163,14 @@ export function getActivePortfolio(): Portfolio | null {
   return getPortfolio(id);
 }
 
+export function getPracticePortfolio(draftId?: string): Portfolio | null {
+  const draft = draftId ? getActivityEntry(draftId) : null;
+  return draft ? (draft.portfolioId ? getPortfolio(draft.portfolioId) : null) : getActivePortfolio();
+}
+
 /** Whole calendar days from today to `dateStr` (negative if it's already past). */
 export function daysUntil(dateStr: string): number {
-  const target = new Date(dateStr);
+  const target = new Date(`${dateStr}T00:00:00`);
   target.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);

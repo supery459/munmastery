@@ -57,6 +57,8 @@ export type DifficultySettings = {
 };
 
 export type SimulatorConfig = {
+  portfolioId?: string | null;
+  ownerId?: string | null;
   committee: Committee;
   topic: Topic;
   country: Country;

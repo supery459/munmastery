@@ -21,9 +21,10 @@ import {
   Swords,
   type LucideIcon,
 } from "lucide-react";
-import { COMMITTEES, COUNTRIES, TOPICS } from "@/components/simulator/data";
+import { COMMITTEES, TOPICS } from "@/components/simulator/data";
+import { WORLD_COUNTRIES } from "@/lib/world-countries";
 import { LEARN_MODULES, CATEGORY_META } from "@/components/learn/data";
-import { getActivity } from "@/lib/activity-store";
+import { getActivity, activityHref } from "@/lib/activity-store";
 import { getPortfolios } from "@/lib/portfolio-store";
 
 export type SearchResult = {
@@ -55,7 +56,7 @@ function staticIndex(): SearchResult[] {
       group: "Committees & topics",
       title: c.name,
       subtitle: c.description,
-      href: "/simulator",
+      href: `/simulator?committee=${encodeURIComponent(c.id)}`,
       icon: Gavel,
     });
   }
@@ -67,18 +68,18 @@ function staticIndex(): SearchResult[] {
       group: "Committees & topics",
       title: t.title,
       subtitle: committee ? committee.shortName : "Agenda topic",
-      href: "/simulator",
+      href: `/simulator?topic=${encodeURIComponent(t.id)}`,
       icon: FileText,
     });
   }
 
-  for (const c of COUNTRIES) {
+  for (const c of WORLD_COUNTRIES) {
     results.push({
       id: `country-${c.code}`,
       group: "Delegations",
       title: c.name,
-      subtitle: c.bloc,
-      href: "/simulator",
+      subtitle: "Country delegation",
+      href: `/simulator?country=${encodeURIComponent(c.name)}`,
       icon: Flag,
     });
   }
@@ -106,13 +107,13 @@ function dynamicIndex(): SearchResult[] {
     });
   }
 
-  for (const e of getActivity().slice(0, 40)) {
+  for (const e of getActivity()) {
     results.push({
       id: `activity-${e.id}`,
       group: "Your activity",
       title: e.title,
       subtitle: e.subtitle ?? "Logged session",
-      href: e.href ?? "/dashboard",
+      href: activityHref(e),
       icon: ACTIVITY_ICON[e.type] ?? Flame,
     });
   }

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { GEMINI_MODEL, MissingApiKeyError, getGeminiClient } from "@/lib/gemini";
+import { ThinkingLevel } from "@google/genai";
+import { GEMINI_MODEL, MissingApiKeyError, getGeminiClient, generateContentWithFallback } from "@/lib/gemini";
 import { deriveReview, words } from "@/components/position-paper/analysis";
 import type { CriterionResult, PositionPaperCriterion } from "@/components/position-paper/types";
 
@@ -65,9 +66,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  let client;
   try {
-    client = getGeminiClient();
+    getGeminiClient();
   } catch (err) {
     const status = err instanceof MissingApiKeyError ? 503 : 500;
     return Response.json({ error: err instanceof Error ? err.message : "AI service unavailable" }, { status });
@@ -82,23 +82,24 @@ export async function POST(req: Request) {
     .join("\n");
 
   try {
-    const interaction = await client.interactions.create({
+    const interaction = await generateContentWithFallback({
       model: GEMINI_MODEL,
-      input: `${context ? `${context}\n\n` : ""}Position paper draft (${wordCount} words):\n"${body.text.trim().length > 0 ? body.text.trim() : "(empty — no draft was provided)"}"`,
-      system_instruction: buildSystemPrompt(),
-      generation_config: { max_output_tokens: 2400, thinking_level: "low" },
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: toGeminiSchema(ReviewSchema),
+      contents: `${context ? `${context}\n\n` : ""}Position paper draft (${wordCount} words):\n"${body.text.trim().length > 0 ? body.text.trim() : "(empty — no draft was provided)"}"`,
+      config: {
+        systemInstruction: buildSystemPrompt(),
+        maxOutputTokens: 4000,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: "application/json",
+        responseJsonSchema: toGeminiSchema(ReviewSchema),
+        abortSignal: req.signal,
       },
     });
 
-    if (!interaction.output_text) {
+    if (!interaction.text) {
       return Response.json({ error: "The model did not return a parseable review" }, { status: 502 });
     }
 
-    const parsed = ReviewSchema.safeParse(JSON.parse(interaction.output_text));
+    const parsed = ReviewSchema.safeParse(JSON.parse(interaction.text));
     if (!parsed.success) {
       return Response.json({ error: "The model returned an invalid review shape" }, { status: 502 });
     }

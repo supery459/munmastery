@@ -9,29 +9,31 @@ import { fetchScorecard } from "@/components/simulator/ai-client";
 import { RadarChart } from "@/components/simulator/radar-chart";
 import { TranscriptFeed } from "@/components/simulator/transcript-feed";
 import { recordActivity } from "@/lib/activity-store";
-import { getActivePortfolio } from "@/lib/portfolio-store";
+import { getPortfolio } from "@/lib/portfolio-store";
 import { BackLink } from "@/components/nav/back-link";
 import type { ScoreDimension, ScoreResult, SessionResult } from "@/components/simulator/types";
 
-export function Scorecard({ result, onRestart }: { result: SessionResult; onRestart: () => void }) {
+export function Scorecard({ result, onRestart, saved }: { result: SessionResult; onRestart: () => void; saved?: { report: ScoreResult; source: "live" | "local" } }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const [score, setScore] = useState<ScoreResult | null>(null);
-  const [source, setSource] = useState<"live" | "local" | null>(null);
+  const [score, setScore] = useState<ScoreResult | null>(saved?.report ?? null);
+  const [source, setSource] = useState<"live" | "local" | null>(saved?.source ?? null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [savedTo, setSavedTo] = useState<string | null>(null);
   const recordedRef = useRef(false);
 
   useEffect(() => {
+    if (saved) return;
     let cancelled = false;
 
-    function logActivity(finalScore: ScoreResult) {
+    function logActivity(finalScore: ScoreResult, source: "live" | "local") {
       if (recordedRef.current) return;
       recordedRef.current = true;
       const dims = Object.keys(finalScore.dimensions) as ScoreDimension[];
       const title = `${result.config.country.name} in ${result.config.committee.shortName}`;
 
       // Only ever renders inside <AuthGate>, so reading portfolio-store directly is safe.
-      const activePortfolio = getActivePortfolio();
-      recordActivity({
+      const activePortfolio = result.config.portfolioId ? getPortfolio(result.config.portfolioId) : null;
+      try { recordActivity({
         type: "simulation",
         title,
         subtitle: result.config.topic.title,
@@ -39,8 +41,10 @@ export function Scorecard({ result, onRestart }: { result: SessionResult; onRest
         dimensions: Object.fromEntries(dims.map((d) => [d, finalScore.dimensions[d].score])),
         href: "/simulator",
         portfolioId: activePortfolio?.id ?? null,
-      });
+        details: { kind: "simulation", session: result, report: finalScore, source },
+      }, result.config.ownerId);
       if (activePortfolio) setSavedTo(activePortfolio.conferenceName);
+      } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save session."); }
     }
 
     (async () => {
@@ -49,21 +53,21 @@ export function Scorecard({ result, onRestart }: { result: SessionResult; onRest
         if (!cancelled) {
           setScore(live);
           setSource("live");
-          logActivity(live);
+          logActivity(live, "live");
         }
       } catch {
         if (!cancelled) {
           const local = scoreSession(result.speeches, result.config);
           setScore(local);
           setSource("local");
-          logActivity(local);
+          logActivity(local, "local");
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [result]);
+  }, [result, saved]);
 
   const { config } = result;
 
@@ -96,6 +100,8 @@ export function Scorecard({ result, onRestart }: { result: SessionResult; onRest
           Saved to your &ldquo;{savedTo}&rdquo; portfolio.
         </p>
       )}
+      {saveError && <p role="alert" className="text-sm text-accent-rose">{saveError}</p>}
+      <Link href="/history?type=simulation" className="mb-4 text-sm text-accent-cyan">Saved debate sessions</Link>
 
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-foreground-muted">
@@ -136,8 +142,7 @@ export function Scorecard({ result, onRestart }: { result: SessionResult; onRest
             </span>
           </div>
           <p className="mt-2 text-xs text-foreground-muted">
-            Better than <span style={{ fontVariantNumeric: "tabular-nums" }}>{score.percentile}%</span> of simulated
-            delegates in this committee
+            Based on the speeches you delivered in this session
           </p>
           <p className="mt-5 text-sm leading-relaxed text-foreground-muted">{score.summary}</p>
         </div>

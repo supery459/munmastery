@@ -14,7 +14,7 @@ export function PortfolioAssignSelect({
   eventId,
   portfolioId,
   onChanged,
-  className = "rounded-lg border border-panel-border bg-panel px-1.5 py-1 text-[10px] text-foreground-muted focus:border-accent-cyan/40 focus:outline-none",
+  className = "max-w-full rounded-lg border border-panel-border bg-panel px-1.5 py-1 text-[10px] text-foreground-muted focus:border-accent-cyan/40 focus:outline-none",
 }: {
   eventId: string;
   portfolioId: string | null | undefined;
@@ -22,14 +22,17 @@ export function PortfolioAssignSelect({
   className?: string;
 }) {
   const [portfolios] = useState(() => getPortfolios());
+  const [error, setError] = useState("");
   if (portfolios.length === 0) return null;
 
   return (
-    <select
+    <span className="max-w-full"><select
       value={portfolioId ?? ""}
       onChange={(e) => {
-        assignActivityPortfolio(eventId, e.target.value || null);
-        onChanged?.();
+        try {
+          assignActivityPortfolio(eventId, e.target.value || null);
+          setError(""); onChanged?.();
+        } catch (error) { setError(error instanceof Error ? error.message : "Unable to assign item."); }
       }}
       onClick={(e) => e.stopPropagation()}
       className={className}
@@ -41,6 +44,6 @@ export function PortfolioAssignSelect({
           {p.conferenceName}
         </option>
       ))}
-    </select>
+    </select>{error && <span role="alert" className="block text-xs text-accent-rose">{error}</span>}</span>
   );
 }

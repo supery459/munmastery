@@ -82,9 +82,11 @@ function SettingsForm() {
   }
 
   function handleClearActivity() {
-    clearActivity();
-    setConfirmingClear(false);
-    setClearStatus("Activity data cleared.");
+    try {
+      clearActivity();
+      setConfirmingClear(false);
+      setClearStatus("Activity data cleared.");
+    } catch (error) { setClearStatus(error instanceof Error ? error.message : "Unable to clear activity."); }
   }
 
   return (
@@ -211,7 +213,7 @@ function SettingsForm() {
             <div className="flex-1">
               <div className="text-sm font-medium text-foreground">Clear local activity data</div>
               <p className="mt-1 text-xs text-foreground-muted">
-                Permanently deletes every logged simulation, speech check, and Learn module completion for this
+                Permanently deletes saved drafts, reports, simulations, speech checks, and Learn module completions for this
                 account. Your account and login stay intact.
               </p>
 

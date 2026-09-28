@@ -52,7 +52,7 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={containerRef} className="relative ml-1 hidden max-w-xs flex-1 sm:block lg:ml-6">
+    <div ref={containerRef} className="relative ml-1 min-w-0 max-w-xs flex-1 lg:ml-6">
       <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted" />
       <input
         ref={inputRef}
@@ -84,7 +84,7 @@ export function GlobalSearch() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="panel absolute left-0 top-full z-50 mt-2 max-h-[70vh] w-[22rem] overflow-y-auto rounded-2xl p-2 shadow-2xl"
+            className="panel fixed left-4 right-4 top-16 z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-lg border border-panel-border p-2 shadow-2xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:w-[22rem]"
           >
             {results.length === 0 ? (
               <p className="px-3 py-4 text-center text-xs text-foreground-muted">

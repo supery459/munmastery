@@ -3,7 +3,7 @@
 import { useRef, useState, type PointerEvent } from "react";
 import { TrendingUp } from "lucide-react";
 import { getWeeklyTrend } from "@/lib/activity-store";
-import { useClientValue } from "@/lib/use-client-value";
+import { useTimeframe } from "@/lib/timeframe-context";
 import type { WeeklyPoint } from "@/lib/activity-store";
 
 const WEEKS = 12;
@@ -37,7 +37,8 @@ function buildSegments(data: WeeklyPoint[]): { index: number; value: number }[][
 }
 
 export function PerformanceChart() {
-  const data = useClientValue(() => getWeeklyTrend(WEEKS), [] as WeeklyPoint[]);
+  const { days } = useTimeframe();
+  const data = getWeeklyTrend(WEEKS, days);
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
 

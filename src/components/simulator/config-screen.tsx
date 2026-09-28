@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Gavel, Sparkles, Target } from "lucide-react";
-import { COMMITTEES, COUNTRIES, DIFFICULTY_SETTINGS, committeeTopics, resolveCountry } from "@/components/simulator/data";
+import { COMMITTEES, COUNTRIES, TOPICS, DIFFICULTY_SETTINGS, committeeTopics, resolveCountry } from "@/components/simulator/data";
 import { BackLink } from "@/components/nav/back-link";
 import { CountrySelect } from "@/components/common/country-select";
 import { getActivePortfolio } from "@/lib/portfolio-store";
@@ -20,26 +20,34 @@ function matchByName<T extends { name: string }>(list: T[], value: string): T | 
 }
 
 // Only ever renders inside <AuthGate>, so reading portfolio-store directly is safe.
-function targetedDefaults(): { committee: Committee | null; country: Country | null; conferenceName: string | null } {
+function targetedDefaults(search: Record<string, string>) {
   const portfolio = getActivePortfolio();
-  if (!portfolio) return { committee: null, country: null, conferenceName: null };
-  const committee =
-    COMMITTEES.find((c) => c.shortName.toLowerCase() === portfolio.committee.trim().toLowerCase()) ??
-    matchByName(COMMITTEES, portfolio.committee);
-  const country = portfolio.country.trim() ? resolveCountry(portfolio.country) : null;
-  return { committee, country, conferenceName: portfolio.conferenceName };
+  const params = new URLSearchParams(search);
+  const searchedTopic = TOPICS.find((t) => t.id === params.get("topic"));
+  const searchedCommittee = COMMITTEES.find((c) => c.id === (searchedTopic?.committeeId ?? params.get("committee")));
+  const assignment = portfolio?.committee.trim() ?? "";
+  const committee = searchedCommittee ?? COMMITTEES.find((c) => c.shortName.toLowerCase() === assignment.toLowerCase()) ??
+    matchByName(COMMITTEES, assignment) ?? (assignment ? { id: "custom", name: assignment, shortName: assignment, description: "Conference committee", icon: Gavel } : null);
+  const countryName = params.get("country") ?? portfolio?.country ?? "";
+  const country = countryName.trim() ? resolveCountry(countryName) : null;
+  const customTopics: Topic[] = (portfolio?.agendaTopics ?? []).map((title, i) => ({
+    id: `portfolio-topic-${i}`, committeeId: committee?.id ?? "custom", title,
+    brief: `Conference agenda: ${title}`, keyIssues: [title, "Country policy", "International cooperation"], concerns: ["implementation", "funding", "accountability"],
+  }));
+  return { committee, country, conferenceName: portfolio?.conferenceName ?? null, portfolioId: portfolio?.id ?? null, customTopics, topic: searchedTopic ?? customTopics[0] ?? null };
 }
 
-export function ConfigScreen({ onStart }: { onStart: (config: SimulatorConfig) => void }) {
-  const [targeted] = useState(targetedDefaults);
+export function ConfigScreen({ onStart, search }: { onStart: (config: SimulatorConfig) => void; search: Record<string, string> }) {
+  const [targeted] = useState(() => targetedDefaults(search));
   const [step, setStep] = useState(() => (targeted.committee && targeted.country ? 2 : targeted.committee ? 1 : 0));
   const [committee, setCommittee] = useState<Committee | null>(() => targeted.committee);
   const [country, setCountry] = useState<Country | null>(() => targeted.country);
   const [countryQuery, setCountryQuery] = useState(() => targeted.country?.name ?? "");
-  const [topic, setTopic] = useState<Topic | null>(null);
+  const [topic, setTopic] = useState<Topic | null>(targeted.topic);
+  const [customTopic, setCustomTopic] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty | null>(null);
 
-  const topics = useMemo(() => (committee ? committeeTopics(committee.id) : []), [committee]);
+  const topics = useMemo(() => [...targeted.customTopics.filter((t) => t.committeeId === committee?.id), ...(committee ? committeeTopics(committee.id) : [])], [committee, targeted]);
 
   const canAdvance =
     (step === 0 && committee) ||
@@ -81,13 +89,14 @@ export function ConfigScreen({ onStart }: { onStart: (config: SimulatorConfig) =
 
   function handleStart() {
     if (!committee || !country || !topic || !difficulty) return;
-    onStart({ committee, topic, country, difficulty });
+    onStart({ committee, topic, country, difficulty, portfolioId: targeted.portfolioId });
   }
 
   return (
     <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-10 sm:px-6">
       <div className="mb-5 flex items-center gap-2">
         <BackLink href="/dashboard" label="Dashboard" />
+        <Link href="/history?type=simulation" className="ml-auto text-sm text-accent-cyan">Saved sessions</Link>
       </div>
 
       <div className="mb-8 flex flex-wrap items-center gap-3">
@@ -181,7 +190,7 @@ export function ConfigScreen({ onStart }: { onStart: (config: SimulatorConfig) =
             <div className="max-w-md">
               <CountrySelect
                 value={countryQuery}
-                onChange={setCountryQuery}
+                onChange={(value) => { setCountryQuery(value); setCountry(null); }}
                 onSelect={selectCountryByName}
                 placeholder="Search delegations (e.g. France, Kenya, Vietnam)…"
               />
@@ -214,6 +223,10 @@ export function ConfigScreen({ onStart }: { onStart: (config: SimulatorConfig) =
 
         {step === 2 && (
           <StepShell title="Select the topic" subtitle={`On the agenda for ${committee?.shortName ?? "this committee"}.`}>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <input aria-label="Custom agenda topic" placeholder="Custom agenda topic" value={customTopic} onChange={(e) => setCustomTopic(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-sm" />
+              <button disabled={!customTopic.trim()} onClick={() => selectTopic({ id: "custom-topic", committeeId: committee?.id ?? "custom", title: customTopic.trim(), brief: customTopic.trim(), keyIssues: [customTopic.trim(), "Implementation", "Cooperation"], concerns: ["funding", "accountability"] })} className="rounded-lg border border-panel-border px-3 py-2 text-sm disabled:opacity-40">Use topic</button>
+            </div>
             <div className="flex flex-col gap-3">
               {topics.map((t) => (
                 <button

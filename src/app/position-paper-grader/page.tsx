@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "Paste or upload a draft position paper for instant AI feedback and a score out of 100.",
 };
 
-export default function PositionPaperGraderPage() {
-  return <PositionPaperGraderRoot />;
+export default async function PositionPaperGraderPage({ searchParams }: PageProps<"/position-paper-grader">) {
+  const { draft } = await searchParams;
+  const draftId = typeof draft === "string" ? draft : undefined;
+  return <PositionPaperGraderRoot key={draftId ?? "new"} draftId={draftId} />;
 }

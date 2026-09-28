@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Calendar, Flame, Target, Sparkles, type LucideIcon } from "lucide-react";
-import { getRecentActivity, getStreakDays, getWeakestDimension } from "@/lib/activity-store";
+import { getRecentActivity, getStreakDays, getWeakestDimension, activityHref } from "@/lib/activity-store";
 import { daysUntil, getActivePortfolio } from "@/lib/portfolio-store";
 import { useClientValue } from "@/lib/use-client-value";
 
@@ -86,7 +86,7 @@ function computeNotifications(): Notification[] {
       tone: "emerald",
       title: "Latest session logged",
       detail: e.title + (typeof e.score === "number" ? ` · scored ${e.score}` : ""),
-      href: e.href,
+      href: activityHref(e),
     });
   }
 
@@ -151,7 +151,7 @@ export function NotificationsPanel() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="panel absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl p-2 shadow-2xl"
+            className="panel fixed left-4 right-4 top-16 z-50 mt-2 rounded-lg p-2 shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:w-80"
           >
             <div className="px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-foreground-muted/70">
               Notifications

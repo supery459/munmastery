@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Calendar,
   Check,
@@ -17,7 +18,7 @@ import { AuthGate } from "@/components/auth/auth-gate";
 import { BackLink } from "@/components/nav/back-link";
 import { PortfolioAssignSelect } from "@/components/common/portfolio-assign-select";
 import { PortfolioFormModal } from "@/components/portfolios/portfolio-form-modal";
-import { getActivityForPortfolio, type ActivityEvent } from "@/lib/activity-store";
+import { getActivityForPortfolio, activityHref, type ActivityEvent } from "@/lib/activity-store";
 import {
   daysUntil,
   deletePortfolio,
@@ -84,8 +85,10 @@ function PortfolioDashboard({ portfolioId }: { portfolioId: string }) {
   }
 
   function handleSaveNotes() {
-    updatePortfolio(portfolio!.id, { notes, motions, cheatsheet });
-    setNotesStatus("Saved.");
+    try {
+      updatePortfolio(portfolio!.id, { notes, motions, cheatsheet });
+      setNotesStatus("Saved.");
+    } catch (error) { setNotesStatus(error instanceof Error ? error.message : "Unable to save notes."); }
     window.setTimeout(() => setNotesStatus(null), 2000);
   }
 
@@ -169,9 +172,9 @@ function PortfolioDashboard({ portfolioId }: { portfolioId: string }) {
               {portfolio.startDate && (
                 <span className="flex items-center gap-1.5 text-xs text-foreground-muted">
                   <Calendar className="h-3.5 w-3.5" />
-                  {new Date(portfolio.startDate).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  {new Date(`${portfolio.startDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                   {portfolio.endDate
-                    ? ` – ${new Date(portfolio.endDate).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+                    ? ` – ${new Date(`${portfolio.endDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
                     : ""}
                 </span>
               )}
@@ -364,7 +367,7 @@ function ArtifactSection({
               className="flex items-center justify-between gap-3 rounded-xl border border-panel-border px-3.5 py-2.5"
             >
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium text-foreground">{e.title}</div>
+                <Link href={activityHref(e)} className="block text-xs font-medium text-accent-cyan">{e.title}</Link>
                 <div className="text-[11px] text-foreground-muted">{formatDate(e.timestamp)}</div>
               </div>
               {typeof e.score === "number" && (
@@ -387,7 +390,7 @@ function ArtifactSection({
 export function PortfolioDashboardRoot({ portfolioId }: { portfolioId: string }) {
   return (
     <AuthGate>
-      <PortfolioDashboard portfolioId={portfolioId} />
+      <PortfolioDashboard key={portfolioId} portfolioId={portfolioId} />
     </AuthGate>
   );
 }

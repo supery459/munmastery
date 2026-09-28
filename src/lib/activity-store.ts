@@ -27,6 +27,14 @@
  */
 
 import { getCurrentUserId } from "@/lib/user-store";
+import type { GradeInput, PositionPaperReview } from "@/components/position-paper/types";
+import type { AnalyzeInput, SpeechDiagnostic } from "@/components/speech-analysis/types";
+import type { SessionResult, ScoreResult } from "@/components/simulator/types";
+
+export type ActivityDetails =
+  | { kind: "positionPaper"; input: GradeInput; report?: PositionPaperReview; source?: "live" | "local" }
+  | { kind: "speech"; input: AnalyzeInput; report?: SpeechDiagnostic; source?: "live" | "local" }
+  | { kind: "simulation"; session: SessionResult; report: ScoreResult; source: "live" | "local" };
 
 export type ActivityType = "simulation" | "speech" | "learn" | "positionPaper";
 
@@ -41,9 +49,9 @@ export type ActivityEvent = {
   href?: string;
   /** The conference portfolio this event is pinned to, or null/absent for global (non-portfolio) history. */
   portfolioId?: string | null;
+  details?: ActivityDetails;
+  draft?: boolean;
 };
-
-const MAX_EVENTS = 300;
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -54,15 +62,52 @@ function storageKey(): string | null {
   return userId ? `mun-mastery:activity:v1:${userId}` : null;
 }
 
+type LegacyArtifact = { id: string; portfolioId: string; type: ActivityType; createdAt: number; title: string; subtitle?: string; score?: number; review?: PositionPaperReview; diagnostic?: SpeechDiagnostic };
+
+function migrateLegacy(events: ActivityEvent[], key: string): ActivityEvent[] {
+  const userId = getCurrentUserId();
+  const marker = `mun-mastery:artifacts-migrated:v1:${userId}`;
+  if (window.localStorage.getItem(marker)) return events;
+  const raw = window.localStorage.getItem(`mun-mastery:portfolio-artifacts:v1:${userId}`);
+  if (!raw) return events;
+  try {
+    const legacy: LegacyArtifact[] = JSON.parse(raw);
+    if (!Array.isArray(legacy)) return events;
+    const merged = [...events];
+    for (const item of legacy) {
+      if (!item.id || !["positionPaper", "speech", "simulation"].includes(item.type)) continue;
+      const report = item.review ?? item.diagnostic;
+      const score = report?.composite ?? item.score;
+      const existing = merged.find((e) => e.id === `legacy-${item.id}` || (e.type === item.type && !e.details && e.score === score && Math.abs(e.timestamp - item.createdAt) < 2000));
+      const details: ActivityDetails | undefined = item.type === "positionPaper" && item.review
+        ? { kind: "positionPaper", input: { text: "", country: "", topic: "" }, report: item.review }
+        : item.type === "speech" && item.diagnostic
+          ? { kind: "speech", input: { text: "", durationSeconds: null }, report: item.diagnostic } : undefined;
+      const dimensions = item.review?.criteria ?? item.diagnostic?.dimensions;
+      if (existing) {
+        existing.portfolioId = item.portfolioId;
+        existing.details = details;
+      } else {
+        merged.push({ id: `legacy-${item.id}`, type: item.type, timestamp: item.createdAt, title: item.title, subtitle: item.subtitle, score, portfolioId: item.portfolioId, details,
+          dimensions: dimensions ? Object.fromEntries(Object.entries(dimensions).map(([name, value]) => [name, value.score])) : undefined });
+      }
+    }
+    merged.sort((a, b) => b.timestamp - a.timestamp);
+    // Keep the original artifact key as a backup; commit the marker only after the merged log is saved.
+    window.localStorage.setItem(key, JSON.stringify(merged));
+    window.localStorage.setItem(marker, "1");
+    return merged;
+  } catch { return events; }
+}
+
 function readRaw(): ActivityEvent[] {
   if (!isBrowser()) return [];
   const key = storageKey();
   if (!key) return [];
   try {
     const raw = window.localStorage.getItem(key);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ActivityEvent[]) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return migrateLegacy(Array.isArray(parsed) ? (parsed as ActivityEvent[]) : [], key);
   } catch {
     return [];
   }
@@ -73,13 +118,14 @@ function writeRaw(events: ActivityEvent[]): void {
   const key = storageKey();
   if (!key) return;
   try {
-    window.localStorage.setItem(key, JSON.stringify(events.slice(0, MAX_EVENTS)));
+    window.localStorage.setItem(key, JSON.stringify(events));
   } catch {
-    // Private-browsing / storage-full — activity just won't persist this run.
+    throw new Error("Your browser could not save this work. Free up browser storage and try again.");
   }
 }
 
-export function recordActivity(event: Omit<ActivityEvent, "id" | "timestamp">): ActivityEvent {
+export function recordActivity(event: Omit<ActivityEvent, "id" | "timestamp">, ownerId = getCurrentUserId()): ActivityEvent {
+  if (!ownerId || ownerId !== getCurrentUserId()) throw new Error("Your session changed. Sign in again to save this work.");
   const full: ActivityEvent = {
     ...event,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -96,6 +142,35 @@ export function getActivity(): ActivityEvent[] {
 
 export function clearActivity(): void {
   writeRaw([]);
+  const userId = getCurrentUserId();
+  if (userId) {
+    window.localStorage.removeItem(`mun-mastery:coach-reviewed:v1:${userId}`);
+    window.localStorage.removeItem(`mun-mastery:portfolio-artifacts:v1:${userId}`);
+  }
+}
+
+export function activityHref(event: ActivityEvent): string {
+  return event.type === "learn" ? event.href ?? "/learn" : `/history?entry=${encodeURIComponent(event.id)}`;
+}
+
+export function getActivityEntry(id: string): ActivityEvent | null {
+  return readRaw().find((event) => event.id === id) ?? null;
+}
+
+export function requestedDraft(): ActivityDetails | undefined {
+  if (!isBrowser()) return undefined;
+  const id = new URLSearchParams(window.location.search).get("draft");
+  return id ? getActivityEntry(id)?.details : undefined;
+}
+
+export function requestedDraftEntry(): ActivityEvent | null {
+  if (!isBrowser()) return null;
+  const id = new URLSearchParams(window.location.search).get("draft");
+  return id ? getActivityEntry(id) : null;
+}
+
+export function deleteActivity(id: string): void {
+  writeRaw(readRaw().filter((event) => event.id !== id));
 }
 
 /** Every event pinned to one conference portfolio, newest first — the data behind /portfolios/[id]'s position paper, speech, and simulation sections. */
@@ -142,7 +217,7 @@ export function getDailyCounts(days: number): Map<string, number> {
     d.setDate(d.getDate() - i);
     counts.set(dayKey(d), 0);
   }
-  for (const e of events) {
+  for (const e of events.filter((event) => !event.draft)) {
     const key = dayKey(new Date(e.timestamp));
     if (counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
   }
@@ -151,7 +226,7 @@ export function getDailyCounts(days: number): Map<string, number> {
 
 /** Consecutive days (including today, or yesterday if nothing logged yet today) with >=1 event. */
 export function getStreakDays(): number {
-  const events = readRaw();
+  const events = readRaw().filter((event) => !event.draft);
   if (events.length === 0) return 0;
   const keys = new Set(events.map((e) => dayKey(new Date(e.timestamp))));
   const today = new Date();
@@ -170,14 +245,14 @@ export function getStreakDays(): number {
 
 /** Longest run of consecutive calendar days with >=1 event, ever. */
 export function getLongestStreak(): number {
-  const events = readRaw();
+  const events = readRaw().filter((event) => !event.draft);
   if (events.length === 0) return 0;
 
   const dayMs = 24 * 60 * 60 * 1000;
   const dates = Array.from(new Set(events.map((e) => dayKey(new Date(e.timestamp)))))
     .map((key) => {
       const [y, m, d] = key.split("-").map(Number);
-      return new Date(y, m, d).getTime();
+      return Date.UTC(y, m, d);
     })
     .sort((a, b) => a - b);
 
@@ -216,13 +291,13 @@ export type ActivityStats = {
 export function getStats(days: number | null = null): ActivityStats {
   const events = readRaw();
   const rangeCutoff = cutoffFor(days);
-  const inRange = events.filter((e) => e.timestamp >= rangeCutoff);
+  const inRange = events.filter((e) => !e.draft && e.timestamp >= rangeCutoff);
   const sevenDayCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
   return {
     totalSimulations: inRange.filter((e) => e.type === "simulation").length,
     totalSpeeches: inRange.filter((e) => e.type === "speech").length,
     totalLearnModules: inRange.filter((e) => e.type === "learn").length,
-    last7Days: events.filter((e) => e.timestamp >= sevenDayCutoff).length,
+    last7Days: events.filter((e) => !e.draft && e.timestamp >= sevenDayCutoff).length,
   };
 }
 
@@ -235,6 +310,11 @@ export function getAverageComposite(type: ActivityType | null = null, days: numb
   if (scored.length === 0) return null;
   const sum = scored.reduce((s, e) => s + (e.score as number), 0);
   return Math.round(sum / scored.length);
+}
+
+export function getBestScore(days: number | null = null): number | null {
+  const scores = readRaw().filter((e) => typeof e.score === "number" && e.timestamp >= cutoffFor(days)).map((e) => e.score as number);
+  return scores.length ? Math.max(...scores) : null;
 }
 
 /** Chronological (oldest→newest) composite scores within `days` (null = all time), for sparklines/trend lines. Always ≥2 entries. */
@@ -264,8 +344,8 @@ export function getPercentile(days: number | null = null): number | null {
 export type WeeklyPoint = { label: string; score: number | null };
 
 /** Real weekly-average composite trend, oldest→newest, for the performance chart. Buckets with no scored activity are null, not a fabricated value. */
-export function getWeeklyTrend(weeks = 12): WeeklyPoint[] {
-  const events = readRaw().filter((e) => typeof e.score === "number");
+export function getWeeklyTrend(weeks = 12, days: number | null = null): WeeklyPoint[] {
+  const events = readRaw().filter((e) => typeof e.score === "number" && e.timestamp >= cutoffFor(days));
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -294,9 +374,9 @@ export function getWeeklyTrend(weeks = 12): WeeklyPoint[] {
 export type DimensionAverage = { key: string; averageScore: number; sampleCount: number };
 
 /** Average of every scored dimension across recent activity, for the skill breakdown. */
-export function getDimensionAverages(sampleSize = 20): DimensionAverage[] {
+export function getDimensionAverages(sampleSize = 20, days: number | null = null): DimensionAverage[] {
   const scored = readRaw()
-    .filter((e) => e.dimensions && Object.keys(e.dimensions).length > 0)
+    .filter((e) => e.timestamp >= cutoffFor(days) && e.dimensions && Object.keys(e.dimensions).length > 0)
     .slice(0, sampleSize);
   if (scored.length === 0) return [];
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { GEMINI_MODEL, MissingApiKeyError, getGeminiClient } from "@/lib/gemini";
+import { ThinkingLevel } from "@google/genai";
+import { GEMINI_MODEL, MissingApiKeyError, getGeminiClient, generateContentWithFallback } from "@/lib/gemini";
 import { deriveScoreResult } from "@/components/simulator/scoring";
 import type { ScoreContext } from "@/components/simulator/types";
 
@@ -95,32 +96,32 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  let client;
   try {
-    client = getGeminiClient();
+    getGeminiClient();
   } catch (err) {
     const status = err instanceof MissingApiKeyError ? 503 : 500;
     return Response.json({ error: err instanceof Error ? err.message : "AI service unavailable" }, { status });
   }
 
   try {
-    const interaction = await client.interactions.create({
+    const interaction = await generateContentWithFallback({
       model: GEMINI_MODEL,
-      input: buildUserPrompt(body),
-      system_instruction: buildSystemPrompt(),
-      generation_config: { max_output_tokens: 2000, thinking_level: "low" },
-      response_format: {
-        type: "text",
-        mime_type: "application/json",
-        schema: toGeminiSchema(ScorecardDimensionsSchema),
+      contents: buildUserPrompt(body),
+      config: {
+        systemInstruction: buildSystemPrompt(),
+        maxOutputTokens: 4000,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: "application/json",
+        responseJsonSchema: toGeminiSchema(ScorecardDimensionsSchema),
+        abortSignal: req.signal,
       },
     });
 
-    if (!interaction.output_text) {
+    if (!interaction.text) {
       return Response.json({ error: "The model did not return a parseable scorecard" }, { status: 502 });
     }
 
-    const parsed = ScorecardDimensionsSchema.safeParse(JSON.parse(interaction.output_text));
+    const parsed = ScorecardDimensionsSchema.safeParse(JSON.parse(interaction.text));
     if (!parsed.success) {
       return Response.json({ error: "The model returned an invalid scorecard shape" }, { status: 502 });
     }

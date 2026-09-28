@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { ClipboardPaste, Mic, Sparkles, Square } from "lucide-react";
 import { useSpeechRecorder } from "@/components/speech-analysis/use-speech-recorder";
+import { SaveDraftButton } from "@/components/common/save-draft-button";
+import { getActivityEntry } from "@/lib/activity-store";
 import type { AnalyzeInput } from "@/components/speech-analysis/types";
 
 type Tab = "paste" | "record";
 
-export function InputPanel({ onAnalyze }: { onAnalyze: (input: AnalyzeInput) => void }) {
+export function InputPanel({ onAnalyze, draftId }: { onAnalyze: (input: AnalyzeInput) => void; draftId?: string }) {
   const [tab, setTab] = useState<Tab>("paste");
-  const [pastedText, setPastedText] = useState("");
-  const [minutesInput, setMinutesInput] = useState("");
-  const [secondsInput, setSecondsInput] = useState("");
+  const [draft] = useState(() => draftId ? getActivityEntry(draftId)?.details : undefined);
+  const [pastedText, setPastedText] = useState(draft?.kind === "speech" ? draft.input.text : "");
+  const [minutesInput, setMinutesInput] = useState(draft?.kind === "speech" ? String(Math.floor((draft.input.durationSeconds ?? 0) / 60)) : "");
+  const [secondsInput, setSecondsInput] = useState(draft?.kind === "speech" ? String((draft.input.durationSeconds ?? 0) % 60) : "");
 
   const recorder = useSpeechRecorder();
 
@@ -51,6 +54,7 @@ export function InputPanel({ onAnalyze }: { onAnalyze: (input: AnalyzeInput) => 
           Record speech
         </button>
       </div>
+      <SaveDraftButton details={{ kind: "speech", input: { text: tab === "paste" ? pastedText : recorder.transcript, durationSeconds: tab === "paste" ? Math.max(0, Number(minutesInput) * 60 + Number(secondsInput)) || null : recorder.elapsedSeconds || null } }} />
 
       {tab === "paste" ? (
         <div className="panel rounded-2xl p-5">

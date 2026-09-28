@@ -9,24 +9,26 @@ import { Report } from "@/components/speech-analysis/report";
 import { analyzeSpeech, DIMENSION_LABELS } from "@/components/speech-analysis/analysis";
 import { fetchDiagnostic } from "@/components/speech-analysis/ai-client";
 import { recordActivity } from "@/lib/activity-store";
-import { getActivePortfolio } from "@/lib/portfolio-store";
+import { getCurrentUserId } from "@/lib/user-store";
+import { getPracticePortfolio } from "@/lib/portfolio-store";
 import { BackLink } from "@/components/nav/back-link";
 import type { AnalyzeInput, SpeechDiagnostic, SpeechDimension } from "@/components/speech-analysis/types";
 
 type Phase = "input" | "analyzing" | "report";
 
-function SpeechLab() {
+function SpeechLab({ draftId }: { draftId?: string }) {
   const [phase, setPhase] = useState<Phase>("input");
   const [diagnostic, setDiagnostic] = useState<SpeechDiagnostic | null>(null);
   const [source, setSource] = useState<"live" | "local" | null>(null);
   const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Only ever renders inside <AuthGate>, so reading portfolio-store directly is safe.
-  const activePortfolio = getActivePortfolio();
+  const activePortfolio = getPracticePortfolio(draftId);
 
-  function logActivity(result: SpeechDiagnostic) {
+  function logActivity(result: SpeechDiagnostic, input: AnalyzeInput, source: "live" | "local", ownerId: string | null) {
     const dims = Object.keys(result.dimensions) as SpeechDimension[];
-    recordActivity({
+    try { recordActivity({
       type: "speech",
       title: "Speech diagnostic",
       subtitle: `${result.wordCount} words · strongest in ${DIMENSION_LABELS[result.strengths[0]].toLowerCase()}`,
@@ -34,11 +36,15 @@ function SpeechLab() {
       dimensions: Object.fromEntries(dims.map((d) => [d, result.dimensions[d].score])),
       href: "/speech-lab",
       portfolioId: activePortfolio?.id ?? null,
-    });
+      details: { kind: "speech", input, report: result, source },
+    }, ownerId);
     if (activePortfolio) setSavedTo(activePortfolio.conferenceName);
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save report."); }
   }
 
   async function handleAnalyze(input: AnalyzeInput) {
+    const ownerId = getCurrentUserId();
+    setSaveError(null);
     setPhase("analyzing");
     const tailoredInput: AnalyzeInput = activePortfolio
       ? { ...input, context: { country: activePortfolio.country, committee: activePortfolio.committee, topic: activePortfolio.agendaTopics[0] } }
@@ -47,12 +53,12 @@ function SpeechLab() {
       const live = await fetchDiagnostic(tailoredInput);
       setDiagnostic(live);
       setSource("live");
-      logActivity(live);
+      logActivity(live, tailoredInput, "live", ownerId);
     } catch {
       const local = analyzeSpeech(input);
       setDiagnostic(local);
       setSource("local");
-      logActivity(local);
+      logActivity(local, tailoredInput, "local", ownerId);
     }
     setPhase("report");
   }
@@ -78,6 +84,8 @@ function SpeechLab() {
       </header>
 
       <div className="px-4 py-10 sm:px-6">
+        <Link href="/history?type=speech" className="mx-auto mb-4 block max-w-3xl text-sm text-accent-cyan">Saved speeches & reports</Link>
+        {saveError && <p role="alert" className="mx-auto mb-4 max-w-3xl text-sm text-accent-rose">{saveError}</p>}
         {phase === "report" && diagnostic ? (
           <>
             {savedTo && (
@@ -116,7 +124,7 @@ function SpeechLab() {
                 </p>
               )}
             </div>
-            <InputPanel onAnalyze={handleAnalyze} />
+            <InputPanel draftId={draftId} onAnalyze={handleAnalyze} />
           </>
         )}
       </div>
@@ -124,10 +132,10 @@ function SpeechLab() {
   );
 }
 
-export function SpeechLabRoot() {
+export function SpeechLabRoot({ draftId }: { draftId?: string }) {
   return (
     <AuthGate>
-      <SpeechLab />
+      <SpeechLab draftId={draftId} />
     </AuthGate>
   );
 }

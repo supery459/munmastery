@@ -10,25 +10,27 @@ import { Report } from "@/components/position-paper/report";
 import { analyzePositionPaper, CRITERION_LABELS } from "@/components/position-paper/analysis";
 import { fetchReview } from "@/components/position-paper/ai-client";
 import { recordActivity } from "@/lib/activity-store";
-import { getActivePortfolio } from "@/lib/portfolio-store";
+import { getCurrentUserId } from "@/lib/user-store";
+import { getPracticePortfolio } from "@/lib/portfolio-store";
 import type { GradeInput, PositionPaperCriterion, PositionPaperReview } from "@/components/position-paper/types";
 
 type Phase = "input" | "grading" | "report";
 
-function PositionPaperGrader() {
+function PositionPaperGrader({ draftId }: { draftId?: string }) {
   const [phase, setPhase] = useState<Phase>("input");
   const [review, setReview] = useState<PositionPaperReview | null>(null);
   const [source, setSource] = useState<"live" | "local" | null>(null);
   const [savedTo, setSavedTo] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Only ever renders inside <AuthGate>, so reading portfolio-store directly is safe.
-  const activePortfolio = getActivePortfolio();
+  const activePortfolio = getPracticePortfolio(draftId);
 
   // Always recorded — with or without an active portfolio — so a graded
   // draft is never lost; it's just global history when no portfolio is set.
-  function logActivity(finalReview: PositionPaperReview) {
+  function logActivity(finalReview: PositionPaperReview, input: GradeInput, source: "live" | "local", ownerId: string | null) {
     const dims = Object.keys(finalReview.criteria) as PositionPaperCriterion[];
-    recordActivity({
+    try { recordActivity({
       type: "positionPaper",
       title: "Position paper review",
       subtitle: `${finalReview.wordCount} words · strongest in ${CRITERION_LABELS[finalReview.strengths[0]].toLowerCase()}`,
@@ -36,22 +38,26 @@ function PositionPaperGrader() {
       dimensions: Object.fromEntries(dims.map((d) => [d, finalReview.criteria[d].score])),
       href: "/position-paper-grader",
       portfolioId: activePortfolio?.id ?? null,
-    });
+      details: { kind: "positionPaper", input, report: finalReview, source },
+    }, ownerId);
     if (activePortfolio) setSavedTo(activePortfolio.conferenceName);
+    } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save report."); }
   }
 
   async function handleGrade(input: GradeInput) {
+    const ownerId = getCurrentUserId();
+    setSaveError(null);
     setPhase("grading");
     try {
       const live = await fetchReview(input);
       setReview(live);
       setSource("live");
-      logActivity(live);
+      logActivity(live, input, "live", ownerId);
     } catch {
       const local = analyzePositionPaper(input);
       setReview(local);
       setSource("local");
-      logActivity(local);
+      logActivity(local, input, "local", ownerId);
     }
     setPhase("report");
   }
@@ -77,6 +83,8 @@ function PositionPaperGrader() {
       </header>
 
       <div className="px-4 py-10 sm:px-6">
+        <Link href="/history?type=positionPaper" className="mx-auto mb-4 block max-w-3xl text-sm text-accent-cyan">Saved papers & reports</Link>
+        {saveError && <p role="alert" className="mx-auto mb-4 max-w-3xl text-sm text-accent-rose">{saveError}</p>}
         {phase === "report" && review ? (
           <>
             {savedTo && (
@@ -116,6 +124,7 @@ function PositionPaperGrader() {
               )}
             </div>
             <InputPanel
+              draftId={draftId}
               onGrade={handleGrade}
               initialCountry={activePortfolio?.country ?? ""}
               initialTopic={activePortfolio?.agendaTopics[0] ?? ""}
@@ -127,10 +136,10 @@ function PositionPaperGrader() {
   );
 }
 
-export function PositionPaperGraderRoot() {
+export function PositionPaperGraderRoot({ draftId }: { draftId?: string }) {
   return (
     <AuthGate>
-      <PositionPaperGrader />
+      <PositionPaperGrader draftId={draftId} />
     </AuthGate>
   );
 }

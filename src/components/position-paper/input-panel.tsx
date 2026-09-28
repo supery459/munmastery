@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { FileUp, Sparkles, X } from "lucide-react";
 import { CountrySelect } from "@/components/common/country-select";
+import { SaveDraftButton } from "@/components/common/save-draft-button";
+import { getActivityEntry } from "@/lib/activity-store";
 import type { GradeInput } from "@/components/position-paper/types";
 
 const ACCEPTED_EXTENSIONS = [".txt", ".md"];
@@ -10,16 +12,19 @@ const MAX_FILE_BYTES = 300_000;
 
 export function InputPanel({
   onGrade,
+  draftId,
   initialCountry = "",
   initialTopic = "",
 }: {
   onGrade: (input: GradeInput) => void;
+  draftId?: string;
   initialCountry?: string;
   initialTopic?: string;
 }) {
-  const [text, setText] = useState("");
-  const [country, setCountry] = useState(initialCountry);
-  const [topic, setTopic] = useState(initialTopic);
+  const [draft] = useState(() => draftId ? getActivityEntry(draftId)?.details : undefined);
+  const [text, setText] = useState(draft?.kind === "positionPaper" ? draft.input.text : "");
+  const [country, setCountry] = useState(draft?.kind === "positionPaper" ? draft.input.country : initialCountry);
+  const [topic, setTopic] = useState(draft?.kind === "positionPaper" ? draft.input.topic : initialTopic);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,6 +129,7 @@ export function InputPanel({
           </div>
         </div>
 
+        <SaveDraftButton details={{ kind: "positionPaper", input: { text, country, topic } }} />
         {fileError && (
           <p role="alert" className="mt-2 text-xs text-accent-rose">
             {fileError}

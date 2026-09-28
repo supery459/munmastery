@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { getCurrentUser, type UserProfile } from "@/lib/user-store";
 import { CurrentUserProvider } from "@/lib/auth-context";
-import { useClientValue } from "@/lib/use-client-value";
 
 type GateState = UserProfile | null | "checking";
+
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener("mun-auth-change", callback);
+  window.addEventListener("pageshow", callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("mun-auth-change", callback);
+    window.removeEventListener("pageshow", callback);
+  };
+}
+function snapshot() { return JSON.stringify(getCurrentUser()); }
 
 /**
  * Protects every /dashboard and sub-page route. There's no server session to
@@ -19,7 +30,8 @@ type GateState = UserProfile | null | "checking";
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const user = useClientValue<GateState>(getCurrentUser, "checking");
+  const raw = useSyncExternalStore(subscribe, snapshot, () => '"checking"');
+  const user = JSON.parse(raw) as GateState;
 
   useEffect(() => {
     if (user === null) router.replace("/");
@@ -33,5 +45,5 @@ export function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
-  return <CurrentUserProvider user={user}>{children}</CurrentUserProvider>;
+  return <CurrentUserProvider key={user.id} user={user}>{children}</CurrentUserProvider>;
 }

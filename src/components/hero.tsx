@@ -1,8 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Gavel, Mic, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Gavel, Mic, Sparkles } from "lucide-react";
 import { useSignUpModal } from "@/components/marketing/signup-modal-context";
+import { WORLD_COUNTRIES } from "@/lib/world-countries";
+import { COMMITTEES } from "@/components/simulator/data";
+import { LEARN_MODULES } from "@/components/learn/data";
 
 const VALUE_POINTS = [
   { icon: Mic, label: "Practice speeches with AI" },
@@ -11,10 +14,10 @@ const VALUE_POINTS = [
 ];
 
 const STATS = [
-  { value: "38,000+", label: "Delegates trained" },
-  { value: "150+", label: "MUN programs" },
-  { value: "4.9/5", label: "Average rating" },
-  { value: "2.3x", label: "Avg. score improvement" },
+  { value: String(WORLD_COUNTRIES.length), label: "Delegations" },
+  { value: String(COMMITTEES.length), label: "Committees" },
+  { value: String(LEARN_MODULES.length), label: "Learn modules" },
+  { value: "3", label: "Practice tools" },
 ];
 
 export function Hero() {
@@ -90,8 +93,8 @@ export function Hero() {
             href="#preview"
             className="glass glass-hover flex items-center gap-2 rounded-full px-6 py-3 text-sm font-medium text-foreground"
           >
-            <Play className="h-4 w-4 text-accent-gold" />
-            Watch 2-min demo
+            <ArrowRight className="h-4 w-4 text-accent-gold" />
+            Explore the tools
           </a>
         </motion.div>
 
@@ -101,7 +104,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.45 }}
           className="mt-4 text-center text-xs text-foreground-muted"
         >
-          No credit card required · Cancel anytime · Built with real MUN chairs
+          No credit card required · Your progress stays in this browser
         </motion.p>
 
         {/* Hero visual: a live-feeling preview of the AI feedback product */}

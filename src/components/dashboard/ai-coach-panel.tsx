@@ -176,7 +176,7 @@ export function AiCoachPanel() {
   const dynamicDirectives = useClientValue(buildDynamicDirectives, []);
 
   const directives = [...dynamicDirectives, ...STATIC_DIRECTIVES];
-  const activeCount = directives.length - done.size;
+  const activeCount = directives.filter((directive) => !done.has(directive.id)).length;
 
   function toggle(id: string) {
     setDone((prev) => {

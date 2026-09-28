@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { FileText, GraduationCap, Mic, Swords } from "lucide-react";
-import { getRecentActivity } from "@/lib/activity-store";
+import { getRecentActivity, activityHref } from "@/lib/activity-store";
 import { useTimeframe } from "@/lib/timeframe-context";
 import { PortfolioAssignSelect } from "@/components/common/portfolio-assign-select";
 import type { ActivityType } from "@/lib/activity-store";
@@ -39,6 +39,7 @@ export function RecentActivity() {
     <div>
       <div className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">Recent activity</h2>
+        <Link href="/history" className="text-xs text-accent-cyan">View all saved work</Link>
         <p className="mt-0.5 text-xs text-foreground-muted">
           Live from your sessions — simulations, speech checks, position papers, and Learn modules (
           {label.toLowerCase()})
@@ -57,9 +58,9 @@ export function RecentActivity() {
             return (
               <li
                 key={e.id}
-                className="panel-hover flex items-center gap-3 rounded-xl border border-panel-border px-3.5 py-2.5"
+                className="panel-hover flex flex-wrap items-center gap-3 rounded-xl border border-panel-border px-3.5 py-2.5"
               >
-                <Link href={e.href ?? "#"} className="flex min-w-0 flex-1 items-center gap-3">
+                <Link href={activityHref(e)} className="flex min-w-0 flex-1 items-center gap-3">
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                     style={{ backgroundColor: `${meta.color}1f` }}

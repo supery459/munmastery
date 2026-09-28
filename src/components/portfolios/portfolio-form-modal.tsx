@@ -55,7 +55,11 @@ export function PortfolioFormModal({
       return;
     }
 
-    onSubmit({
+    if (startDate && endDate && endDate < startDate) {
+      setError("End date must be on or after the start date.");
+      return;
+    }
+    try { onSubmit({
       conferenceName: conferenceName.trim(),
       committee: committee.trim(),
       country: country.trim(),
@@ -66,7 +70,7 @@ export function PortfolioFormModal({
       startDate: startDate || null,
       endDate: endDate || null,
       positionPaperDeadline: deadline || null,
-    });
+    }); } catch (error) { setError(error instanceof Error ? error.message : "Unable to save portfolio."); }
   }
 
   return (

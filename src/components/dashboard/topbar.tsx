@@ -38,21 +38,21 @@ export function Topbar() {
           {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
 
-        <Link href="/" className="flex items-center gap-2 lg:hidden">
+        <Link href="/dashboard" className="flex items-center gap-2 lg:hidden" aria-label="Dashboard">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-cyan/20 to-accent-indigo/20">
             <Gavel className="h-3.5 w-3.5 text-accent-cyan" strokeWidth={1.75} />
           </span>
         </Link>
 
         <div className="hidden min-w-0 flex-col leading-tight lg:flex">
-          <span className="text-[11px] text-foreground-muted">Delegate</span>
-          <h1 className="text-sm font-semibold text-foreground">Overview</h1>
+          <span className="text-[11px] text-foreground-muted">Workspace</span>
+          <div className="text-sm font-semibold text-foreground">{PRIMARY_NAV.find((item) => isNavItemActive(pathname, item.href))?.label ?? "Settings"}</div>
         </div>
 
         <GlobalSearch />
 
         <div className="ml-auto flex items-center gap-2">
-          <TimeframeDropdown />
+          {pathname === "/dashboard" && <TimeframeDropdown />}
           <NotificationsPanel />
 
           <button

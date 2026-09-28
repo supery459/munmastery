@@ -2,7 +2,7 @@
 
 import { Mic, Target, Trophy, Zap } from "lucide-react";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { getAverageComposite, getCompositeSeries, getPercentile, getStats } from "@/lib/activity-store";
+import { getAverageComposite, getBestScore, getCompositeSeries, getStats } from "@/lib/activity-store";
 import { useTimeframe } from "@/lib/timeframe-context";
 
 type StatDisplay = {
@@ -21,7 +21,7 @@ function computeStats(days: number | null): StatDisplay[] {
   const readiness = getAverageComposite("simulation", days);
   const speeches = getStats(days).totalSpeeches;
   const overall = getAverageComposite(null, days);
-  const percentile = getPercentile(days);
+  const best = getBestScore(days);
 
   return [
     {
@@ -47,8 +47,8 @@ function computeStats(days: number | null): StatDisplay[] {
     },
     {
       icon: Trophy,
-      label: "Global delegate rank",
-      value: percentile === null ? "Unranked" : `Top ${Math.max(1, 100 - percentile)}%`,
+      label: "Personal best",
+      value: best === null ? "—" : String(best),
       sparkline: getCompositeSeries(null, 8, days),
       accent: "#34d399",
     },

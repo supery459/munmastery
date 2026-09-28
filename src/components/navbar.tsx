@@ -9,7 +9,6 @@ const NAV_LINKS = [
   { label: "First Conference", href: "#first-conference" },
   { label: "Explore", href: "#preview" },
   { label: "Features", href: "#features" },
-  { label: "Reviews", href: "#testimonials" },
   { label: "FAQ", href: "#faq" },
 ];
 

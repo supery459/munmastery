@@ -32,7 +32,7 @@ export const PRIMARY_NAV = [
   { label: "Position Paper Grader", href: "/position-paper-grader", icon: FileText },
   { label: "Portfolios", href: "/portfolios", icon: FolderKanban },
   { label: "Performance", href: "/dashboard#performance", icon: BarChart3 },
-  { label: "Training log", href: "/dashboard#training", icon: Flame },
+  { label: "Saved work", href: "/history", icon: Flame },
   { label: "AI Coach", href: "/dashboard#coach", icon: Bot },
   { label: "Conferences", href: "/dashboard#hub", icon: Calendar },
 ];
@@ -65,7 +65,7 @@ export function Sidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-panel-border bg-panel lg:flex">
-      <Link href="/" className="flex items-center gap-2.5 px-5 py-5">
+      <Link href="/dashboard" className="flex items-center gap-2.5 px-5 py-5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-cyan/20 to-accent-indigo/20">
           <Gavel className="h-4 w-4 text-accent-cyan" strokeWidth={1.75} />
         </span>
@@ -86,6 +86,7 @@ export function Sidebar() {
                 <li key={item.label}>
                   <Link
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                       isActive
                         ? "bg-white/[0.06] text-foreground"
@@ -113,6 +114,7 @@ export function Sidebar() {
                 <li key={item.label}>
                   <Link
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                       isActive
                         ? "bg-white/[0.06] text-foreground"

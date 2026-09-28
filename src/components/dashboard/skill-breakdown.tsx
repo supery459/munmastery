@@ -2,8 +2,7 @@
 
 import { BarChart3 } from "lucide-react";
 import { getDimensionAverages } from "@/lib/activity-store";
-import { useClientValue } from "@/lib/use-client-value";
-import type { DimensionAverage } from "@/lib/activity-store";
+import { useTimeframe } from "@/lib/timeframe-context";
 
 const DIMENSION_LABELS: Record<string, string> = {
   clarity: "Speaking clarity",
@@ -21,12 +20,9 @@ const DIMENSION_LABELS: Record<string, string> = {
   formatting: "Formatting & structure",
 };
 
-function computeSkills(): DimensionAverage[] {
-  return getDimensionAverages(20).sort((a, b) => b.averageScore - a.averageScore);
-}
-
 export function SkillBreakdown() {
-  const skills = useClientValue(computeSkills, [] as DimensionAverage[]);
+  const { days } = useTimeframe();
+  const skills = getDimensionAverages(Infinity, days).sort((a, b) => b.averageScore - a.averageScore);
 
   return (
     <div>

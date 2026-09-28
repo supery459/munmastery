@@ -58,21 +58,25 @@ function readAccounts(): Account[] {
   }
 }
 
-function writeAccounts(accounts: Account[]): void {
-  if (!isBrowser()) return;
+function writeAccounts(accounts: Account[]): boolean {
+  if (!isBrowser()) return false;
   try {
     window.localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    window.dispatchEvent(new Event("mun-auth-change"));
+    return true;
   } catch {
-    // Private-browsing / storage-full — the account just won't persist.
+    return false;
   }
 }
 
-function setSession(userId: string): void {
-  if (!isBrowser()) return;
+function setSession(userId: string): boolean {
+  if (!isBrowser()) return false;
   try {
     window.localStorage.setItem(SESSION_KEY, userId);
+    window.dispatchEvent(new Event("mun-auth-change"));
+    return true;
   } catch {
-    // Ignore — the session just won't survive a reload.
+    return false;
   }
 }
 
@@ -92,7 +96,7 @@ export function signUp({ name, email, password }: { name: string; email: string;
   const normalizedEmail = normalizeEmail(email);
 
   if (!trimmedName) return { ok: false, error: "Enter your name." };
-  if (!normalizedEmail) return { ok: false, error: "Enter a valid email address." };
+  if (!EMAIL_PATTERN.test(normalizedEmail)) return { ok: false, error: "Enter a valid email address." };
   if (password.length < 8) return { ok: false, error: "Password must be at least 8 characters." };
 
   const accounts = readAccounts();
@@ -107,8 +111,7 @@ export function signUp({ name, email, password }: { name: string; email: string;
     passwordHash: hashPassword(password),
     createdAt: Date.now(),
   };
-  writeAccounts([...accounts, account]);
-  setSession(account.id);
+  if (!writeAccounts([...accounts, account]) || !setSession(account.id)) return { ok: false, error: "Browser storage is unavailable. Enable storage and try again." };
   return { ok: true, profile: toProfile(account) };
 }
 
@@ -121,7 +124,7 @@ export function logIn({ email, password }: { email: string; password: string }):
     return { ok: false, error: "Incorrect email or password." };
   }
 
-  setSession(account.id);
+  if (!setSession(account.id)) return { ok: false, error: "Browser storage is unavailable. Enable storage and try again." };
   return { ok: true, profile: toProfile(account) };
 }
 
@@ -129,6 +132,7 @@ export function logOut(): void {
   if (!isBrowser()) return;
   try {
     window.localStorage.removeItem(SESSION_KEY);
+    window.dispatchEvent(new Event("mun-auth-change"));
   } catch {
     // Ignore.
   }
@@ -160,7 +164,7 @@ export function updateName(userId: string, name: string): AuthResult {
 
   const updated: Account = { ...accounts[index], name: trimmed };
   accounts[index] = updated;
-  writeAccounts(accounts);
+  if (!writeAccounts(accounts)) return { ok: false, error: "Unable to save your changes. Check browser storage." };
   return { ok: true, profile: toProfile(updated) };
 }
 
@@ -181,7 +185,7 @@ export function updateEmail(userId: string, email: string, currentPassword: stri
 
   const updated: Account = { ...accounts[index], email: normalizedEmail };
   accounts[index] = updated;
-  writeAccounts(accounts);
+  if (!writeAccounts(accounts)) return { ok: false, error: "Unable to save your changes. Check browser storage." };
   return { ok: true, profile: toProfile(updated) };
 }
 
@@ -197,7 +201,7 @@ export function updatePassword(userId: string, currentPassword: string, newPassw
 
   const updated: Account = { ...accounts[index], passwordHash: hashPassword(newPassword) };
   accounts[index] = updated;
-  writeAccounts(accounts);
+  if (!writeAccounts(accounts)) return { ok: false, error: "Unable to save your changes. Check browser storage." };
   return { ok: true, profile: toProfile(updated) };
 }
 

@@ -1,4 +1,5 @@
-import { GEMINI_MODEL, MissingApiKeyError, getGeminiClient } from "@/lib/gemini";
+import { GEMINI_MODEL, GEMINI_FALLBACK_MODEL, MissingApiKeyError, getGeminiClient, isTransientModelError } from "@/lib/gemini";
+import { ThinkingLevel } from "@google/genai";
 
 export const runtime = "nodejs";
 
@@ -90,20 +91,26 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        const geminiStream = await client.interactions.create({
-          model: GEMINI_MODEL,
-          input: buildUserPrompt(body),
-          system_instruction: buildSystemPrompt(body),
-          stream: true,
-          generation_config: {
-            max_output_tokens: MAX_TOKENS[body.mode],
-            thinking_level: "low",
+        let emitted = false;
+        for (const model of [GEMINI_MODEL, GEMINI_FALLBACK_MODEL]) {
+          try {
+        const geminiStream = await client.models.generateContentStream({
+          model,
+          contents: buildUserPrompt(body),
+          config: {
+            systemInstruction: buildSystemPrompt(body),
+            maxOutputTokens: MAX_TOKENS[body.mode] + 1000,
+            thinkingConfig: model === GEMINI_MODEL ? { thinkingLevel: ThinkingLevel.LOW } : undefined,
+            abortSignal: req.signal,
           },
         });
 
         for await (const event of geminiStream) {
-          if (event.event_type === "step.delta" && event.delta.type === "text") {
-            controller.enqueue(encoder.encode(event.delta.text));
+          if (event.text) { emitted = true; controller.enqueue(encoder.encode(event.text)); }
+        }
+        break;
+          } catch (error) {
+            if (model === GEMINI_FALLBACK_MODEL || emitted || !isTransientModelError(error)) throw error;
           }
         }
         controller.close();
